@@ -88,6 +88,33 @@ def register():
         subtype = 'NONE',
         default = 0
     )
+            #need to write scene context GUI that prompts for accession number
+    bpy.types.Scene.dna_access_num = bpy.props.StringProperty(
+        name = 'dna_access_num',
+        description = 'The full GenBank prefix and accession number',
+        options = {'TEXTEDIT_UPDATE'},
+        default = 'AY172335.1',
+        subtype = 'NONE',
+        #check bpy doc to see if maxlen can be adjusted by user
+        maxlen = 100
+        )
+        #I'd like to make the max length adjustable
+
+        #Maybe the default setup can have a string node to auto shorten
+        #the sequence to 100, and the maxlen in scene context can be
+        #1000, or some other high number for those whose set ups can handle it.
+        #they'd have to go into geo nodes and adjust the default max
+
+
+    #filler until I can address typed DNA seq
+    bpy.types.Scene.custom_dna_seq = bpy.props.StringProperty(
+        name = 'custom_sequence',
+        description = 'The custom DNA sequence input by the user',
+        options = {'TEXTEDIT_UPDATE'},
+        default = 'GATTACA',
+        subtype = 'NONE',
+        maxlen=100
+        ) 
     bpy.types.Scene.mol_import_local_path = bpy.props.StringProperty(
         name = 'path_pdb', 
         description = 'File path of the structure to open', 
@@ -211,6 +238,7 @@ def register():
 
     bpy.utils.register_class(MOL_OT_Import_Protein_RCSB)
 
+    bpy.utils.register_class(MOL_OT_Import_DNA_Seq)
     bpy.utils.register_class(MOL_OT_Import_Method_Selection)
     bpy.utils.register_class(MOL_OT_Import_Protein_Local)
     bpy.utils.register_class(MOL_OT_Import_Protein_MD)
@@ -278,6 +306,7 @@ def unregister():
     bpy.utils.unregister_class(MOL_OT_Style_Surface_Custom)
     bpy.utils.unregister_class(MOL_OT_Ligand_Selection_Custom)
     
+    bpy.utils.unregister_class(MOL_OT_Import_DNA_Seq)
     bpy.utils.unregister_class(MOL_OT_Import_Protein_RCSB)
     bpy.utils.unregister_class(MOL_OT_Import_Method_Selection)
     bpy.utils.unregister_class(MOL_OT_Import_Protein_Local)
