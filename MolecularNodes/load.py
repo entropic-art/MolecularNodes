@@ -101,6 +101,53 @@ def molecule_local(
         
     return mol_object
 
+def create_dna_curve(dna_name, collection = None, locations = []):
+    #create a new curve object
+    curve_data = bpy.data.curves.new(name = dna_name, type = 'CURVE')
+    curve_object = bpy.data.objects.new(dna_name, curve_data)
+
+    #add 5 points to the curve
+    polyline = curve_data.splines.new(type = 'POLY')
+    polyline.points.add(5)
+    for i, location in enumerate(locations):
+        polyline.points[i].co = location + (1.0,)
+
+    if collection is None:
+        collection = bpy.context.scene.collection
+    collection.objects.link(curve_object)
+
+    #set the curve object as active and select it
+    bpy.context.view_layer.objects.active = curve_object
+    curve_object.select_set(True)
+
+    return curve_object
+
+def nucleic_fasta(access_num, setup_nodes = True):
+    #nucleotides, file = open_structure_genbank(access_num)
+    curve_object = create_dna_curve(dna_name = access_num, collection = None, locations = [(0, 0, 0)])
+
+    if setup_nodes:
+        nodes.create_starting_dna_node_tree(
+            curve=curve_object
+        )
+    return 0
+
+def open_sequence_genbank(access_num):
+    import biotite.database.entrez as entrez
+    import biotite.sequence.io.fasta as fasta
+
+    #fetch the fasta sequence based on the given accession number
+    file = entrez.fetch(db="sequences", id=access_num, rettype="fasta")
+
+    seq = fasta.get_sequence(file)
+
+    #declare an empty list to store 1d array of indexed nucleotides
+    nucleotides = []
+
+    for i, nucleotides in enumerate(seq):
+      nucleotides.append((i,nucleotides))
+
+    return nucleotides, file
 
 def open_structure_rcsb(pdb_code, include_bonds = True):
     import biotite.structure.io.mmtf as mmtf
