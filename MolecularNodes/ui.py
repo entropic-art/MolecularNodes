@@ -1,47 +1,13 @@
 import bpy
+from .pref import *
+from .tools import property_exists
 from . import nodes
 from . import pkg
 from . import load
 from . import md
 from . import assembly
-from . import density
-from . import star
-from . import esmfold
-from . import density
 import os
 
-#operator that calls the function to import the fasta sequence from GenBank
-class MOL_OT_Import_DNA_Seq(bpy.types.Operator):
-    #PLACEHOLDER NAMES, ENSURE THEY MATCH UP
-    bl_idname = "mol.import_fasta_seq"
-    bl_label = "import_dna_fasta"
-    bl_description = "Download a fasta sequence from NIH GenBank"
-    bl_options = {"REGISTER", "UNDO"}
-
-    @classmethod
-    def poll(cls, context):
-        return not False
-
-    def execute(self, context):
-        #write in dna access num
-        fasta = bpy.context.scene.dna_access_num
-        #collection = bpy.context.scene.collection
-        seq = load.open_structure_genbank(
-            access_num = fasta,
-            #collection = collection
-            )
-
-        nodes.create_starting_dna_node_tree(
-            obj = seq
-            )
-        #check to make sure everything was found/downloaded correctly
-
-        self.report({'INFO'}, message='Successfully Imported '+ fasta + ' as ' + seq.name)
-
-        return {"FINISHED"}
-
-    def invoke(self, context, event):
-        return self.execute(context)
 
 
 # operator that calls the function to import the structure from the PDB
@@ -73,7 +39,9 @@ class MOL_OT_Import_Protein_RCSB(bpy.types.Operator):
 
     def invoke(self, context, event):
         return self.execute(context)
-    
+
+
+
 
 # operator that calls the function to import the structure from a local file
 class MOL_OT_Import_Protein_Local(bpy.types.Operator):
@@ -88,11 +56,13 @@ class MOL_OT_Import_Protein_Local(bpy.types.Operator):
 
     def execute(self, context):
         file_path = bpy.context.scene.mol_import_local_path
+        include_bonds = bpy.context.scene.mol_import_include_bonds
+        
         
         mol_object = load.molecule_local(
             file_path=file_path, 
             mol_name=bpy.context.scene.mol_import_local_name,
-            include_bonds=bpy.context.scene.mol_import_include_bonds, 
+            include_bonds=include_bonds, 
             center_molecule=bpy.context.scene.mol_import_center, 
             del_solvent=bpy.context.scene.mol_import_del_solvent, 
             default_style=bpy.context.scene.mol_import_default_style, 
@@ -107,31 +77,25 @@ class MOL_OT_Import_Protein_Local(bpy.types.Operator):
     def invoke(self, context, event):
         return self.execute(context)
 
+class MOL_OT_Import_Protein_MD(bpy.types.Operator):
+    bl_idname = "mol.import_protein_md"
+    bl_label = "Import Protein MD"
+    bl_description = "Load molecular dynamics trajectory"
+    bl_options = {"REGISTER", "UNDO"}
 
+    @classmethod
+    def poll(cls, context):
+        return True
 
     def execute(self, context):
         file_top = bpy.context.scene.mol_import_md_topology
         file_traj = bpy.context.scene.mol_import_md_trajectory
         name = bpy.context.scene.mol_import_md_name
-        selection = bpy.context.scene.mol_md_selection
-        md_start = bpy.context.scene.mol_import_md_frame_start
-        md_step =  bpy.context.scene.mol_import_md_frame_step
-        md_end =   bpy.context.scene.mol_import_md_frame_end
-        del_solvent = bpy.context.scene.mol_import_del_solvent
-        include_bonds = bpy.context.scene.mol_import_include_bonds
-        custom_selections = bpy.context.scene.trajectory_selection_list
         
         mol_object, coll_frames = md.load_trajectory(
-            file_top    = file_top, 
-            file_traj   = file_traj, 
-            md_start    = md_start,
-            md_end      = md_end,
-            md_step     = md_step,
-            name        = name, 
-            del_solvent = del_solvent, 
-            selection   = selection,
-            include_bonds=include_bonds,
-            custom_selections = custom_selections,
+            file_top = file_top, 
+            file_traj = file_traj, 
+            name = name
         )
         n_frames = len(coll_frames.objects)
         
@@ -141,66 +105,9 @@ class MOL_OT_Import_Protein_Local(bpy.types.Operator):
             starting_style = bpy.context.scene.mol_import_default_style
             )
         bpy.context.view_layer.objects.active = mol_object
-        self.report(
-            {'INFO'}, 
-            message=f"Imported '{file_top}' as {mol_object.name} with {str(n_frames)} \
-                frames from '{file_traj}'."
-                )
+        self.report({'INFO'}, message=f"Imported '{file_top}' as {mol_object.name} with {str(n_frames)} frames from '{file_traj}'.")
         
         return {"FINISHED"}
-    
-#write and store a string for custom nucleic acid sequence
-class MOL_OT_Write_Custom_DNA_Seq(bpy.types.Operator):
-    #PLACEHOLDER NAMES, ENSURE THEY MATCH UP ACROSS MOL_NODES
-    bl_idname = "mol.write_custom_seq"
-    bl_label = "write_custom_seq"
-    bl_description = "Write a string of nucleic acids for a custom sequence"
-    bl_options = {"REGISTER", "UNDO"}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        print("0")
-        #insert actual execute commands
-
-    def invoke(self, context, event):
-        return self.execute(context)
-
-#operator that calls the function to import the fasta sequence from GenBank
-class MOL_OT_Import_DNA_Seq(bpy.types.Operator):
-    #PLACEHOLDER NAMES, ENSURE THEY MATCH UP
-    bl_idname = "mol.import_fasta_seq"
-    bl_label = "import_dna_fasta"
-    bl_description = "Download a fasta sequence from NIH GenBank"
-    bl_options = {"REGISTER", "UNDO"}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        fasta = bpy.context.scene.dna_access_num
-        seq, file = load.open_sequence_genbank(fasta = fasta)
-        nucleotides, file = load.open_structure_genbank
-        #NEED TO WRITE CREATE STRAND...HOW WAS THIS WRITTEN BEFORE THE REWRITE?
-        nuc_object = load.create_strand(
-            #open_structure_genbank
-        )
-        nodes.create_starting_dna_node_tree(
-            obj = nuc_object, 
-            starting_style = bpy.context.scene.mol_import_default_style
-            )
-        #check to make sure everything was found/downloaded correctly
-
-        self.report({'INFO'}, message='Successfully Imported '+ fasta + ' as ' + nuc_object.name)
-
-        return {"FINISHED"}
-
-    def invoke(self, context, event):
-        return self.execute(context)
-
 
 
 def MOL_PT_panel_rcsb(layout_function, ):
@@ -213,12 +120,10 @@ def MOL_PT_panel_rcsb(layout_function, ):
     col_main.scale_x = 1.0
     col_main.scale_y = 1.0
     col_main.alignment = 'Expand'.upper()
-    col_main.label(text = "Download from PDB")
+    col_main.label(text = "Download from PDB", icon_value = 3)
     row_import = col_main.row()
-    row_import.prop(bpy.context.scene, 'mol_pdb_code', text='PDB ID')
-    row_import.operator('mol.import_protein_rcsb', text='Download', icon='IMPORT')
-
-
+    row_import.prop(bpy.context.scene, 'mol_pdb_code', text='PDB ID', icon_value=0, emboss=True)
+    row_import.operator('mol.import_protein_rcsb', text='Download', icon_value=169, emboss=True, depress=False)
 
 def MOL_PT_panel_local(layout_function, ):
     col_main = layout_function.column(heading = '', align = False)
@@ -226,11 +131,9 @@ def MOL_PT_panel_local(layout_function, ):
     col_main.enabled = True
     col_main.active = True
     col_main.label(text = "Open Local File")
-    row_name = col_main.row(align = False)
-    row_name.prop(bpy.context.scene, 'mol_import_local_name', 
-                    text = "Name", icon_value = 0, emboss = True)
-    row_name.operator('mol.import_protein_local', text = "Load", 
-                        icon='FILE_TICK', emboss = True)
+    row_name = col_main.row(align = True)
+    row_name.prop(bpy.context.scene, 'mol_import_local_name', text = "Name", icon_value = 0, emboss = True)
+    row_name.operator('mol.import_protein_local', text = "Load", icon_value = 30, emboss = True)
     row_import = col_main.row()
     row_import.prop(
         bpy.context.scene, 'mol_import_local_path', 
@@ -239,72 +142,24 @@ def MOL_PT_panel_local(layout_function, ):
         emboss = True
     )
 
-
-
-    def execute(self, context):
-        map_file = bpy.context.scene.mol_import_map
-        invert = bpy.context.scene.mol_import_map_invert
-        setup_node_tree = bpy.context.scene.mol_import_map_nodes
-        
-        vol = density.load(
-            file = map_file, 
-            invert = invert
-            )
-        if setup_node_tree:
-            nodes.create_starting_nodes_density(vol)
-        
-        return {"FINISHED"}
-
-def MOL_PT_panel_map(layout_function, scene):
-    col_main = layout_function.column(heading = '', align = False)
-    col_main.label(text = 'Import EM Maps as Volumes')
-    row = col_main.row()
-    row.prop(bpy.context.scene, 'mol_import_map_nodes',
-                  text = 'Starting Node Tree'
-                  )
-    row.prop(bpy.context.scene, 'mol_import_map_invert', 
-             text = 'Invert Data', 
-             emboss = True
-            )
-    
-    row.operator('mol.import_map', text = 'Load Map', icon = 'FILE_TICK')
-    
-    col_main.prop(bpy.context.scene, 'mol_import_map', 
-             text = 'EM Map', 
-             emboss = True
-            )
-    col_main.label(text = "Intermediate file will be created:")
-    box = col_main.box()
-    box.alignment = "LEFT"
-    box.scale_y = 0.4
-    box.label(
-        text = f"Intermediate file: {density.path_to_vdb(bpy.context.scene.mol_import_map)}."
-        )
-    box.label(
-        text = "Please do not delete this file or the volume will not render."
-    )
-    box.label(
-        text = "Move the original .map file to change this location."
-    )
-
-
-def MOL_PT_panel_md_traj(layout_function, scene):
+def MOL_PT_panel_md_traj(layout_function, ):
     col_main = layout_function.column(heading = '', align = False)
     col_main.alert = False
     col_main.enabled = True
     col_main.active = True
     col_main.label(text = "Import Molecular Dynamics Trajectories")
-    row_import = col_main.row()
+    row_import = col_main.row(align = True)
     row_import.prop(
         bpy.context.scene, 'mol_import_md_name', 
         text = "Name", 
         emboss = True
     )
-    row_import.operator('mol.import_protein_md', text = "Load", icon='FILE_TICK')
+    row_import.operator('mol.import_protein_md', text = "Load", icon_value = 30, emboss = True)
     row_topology = col_main.row(align = True)
     row_topology.prop(
         bpy.context.scene, 'mol_import_md_topology', 
-        text = 'Topology',
+        text = 'Topology', 
+        icon_value = 458, 
         emboss = True
     )
     row_trajectory = col_main.row()
@@ -330,89 +185,14 @@ def MOL_PT_panel_md_traj(layout_function, scene):
         text = 'End',
         emboss = True
     )
-    col_main.prop(
-        bpy.context.scene, 'mol_md_selection', 
-        text = 'Import Filter', 
-        emboss = True
-    )
-    col_main.separator()
-    col_main.label(text="Custom Selections")
-    row = col_main.row(align=True)
     
-    row = row.split(factor = 0.9)
-    row.template_list('MOL_UL_TrajectorySelectionListUI', 'A list', scene, 
-                        "trajectory_selection_list", scene, "list_index", rows=3)
-    col = row.column()
-    col.operator('trajectory_selection_list.new_item', icon="ADD", text="")
-    col.operator('trajectory_selection_list.delete_item', icon="REMOVE", text="")
-    if scene.list_index >= 0 and scene.trajectory_selection_list:
-        item = scene.trajectory_selection_list[scene.list_index]
-        
-        col = col_main.column(align=False)
-        col.separator()
-        
-        col.prop(item, "name")
-        col.prop(item, "selection")
-
-def MOL_PT_panel_star_file(layout_function, scene):
-    col_main = layout_function.column(heading = "", align = False)
-    col_main.label(text = "Import Star File")
-    row_import = col_main.row()
-    row_import.prop(
-        bpy.context.scene, 'mol_import_star_file_name', 
-        text = 'Name', 
-        emboss = True
-    )
-    col_main.prop(
-        bpy.context.scene, 'mol_import_star_file_path', 
-        text = '.star File Path', 
-        emboss = True
-    )
-    row_import.operator('mol.import_star_file', text = 'Load', icon = 'FILE_TICK')
-    
-def MOL_PT_panel_dna(layout_function, scene):
-    #set up for adding DNA fasta acquisition into UI
-    col_main = layout_function.column(heading = '', align = False)
-    col_main.label(text = "Download from GenBank")
-    row_import = col_main.row()    
-    col_main.alert = False
-    col_main.enabled = True
-    col_main.active = True
-    
-    row_import.prop(bpy.context.scene, 'dna_access_num', text='Access Num', emboss = True)
-    row_import.operator('mol.import_fasta_seq', text = 'Download', icon = 'IMPORT')    
-
-
-class MOL_OT_Import_Star_File(bpy.types.Operator):
-    bl_idname = "mol.import_star_file"
-    bl_label = "Import Star File"
-    bl_description = "Will import the given file, setting up the points to instance an object."
-    bl_options = {"REGISTER"}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        load.load_star_file(
-            file_path = bpy.context.scene.mol_import_star_file_path, 
-            obj_name = bpy.context.scene.mol_import_star_file_name, 
-            node_tree = True
-        )
-        return {"FINISHED"}
-
 
 class MOL_OT_Import_Method_Selection(bpy.types.Operator):
     bl_idname = "mol.import_method_selection"
     bl_label = "import_method"
     bl_description = "Change Structure Import Method"
     bl_options = {"REGISTER", "UNDO"}
-    mol_interface_value: bpy.props.IntProperty(
-        name = 'interface_value', 
-        description = '', 
-        default = 0, 
-        subtype = 'NONE'
-        )
+    mol_interface_value: bpy.props.IntProperty(name = 'interface_value', description = '', default = 0, subtype = 'NONE')
 
     @classmethod
     def poll(cls, context):
@@ -426,22 +206,13 @@ class MOL_OT_Import_Method_Selection(bpy.types.Operator):
         return self.execute(context)
 
 def MOL_change_import_interface(layout_function, label, interface_value, icon):
-    if isinstance(icon, str):
-        op = layout_function.operator(
-            'mol.import_method_selection', 
-            text = label, 
-            icon = icon, 
-            emboss = True, 
-            depress = interface_value == bpy.context.scene.mol_import_panel_selection
-        )
-    elif isinstance(icon, int):
-        op = layout_function.operator(
-            'mol.import_method_selection', 
-            text = label, 
-            icon_value = icon, 
-            emboss = True, 
-            depress = interface_value == bpy.context.scene.mol_import_panel_selection
-        )
+    op = layout_function.operator(
+        'mol.import_method_selection', 
+        text = label, 
+        icon_value = icon, 
+        emboss = True, 
+        depress = interface_value == bpy.context.scene.mol_import_panel_selection
+    )
     op.mol_interface_value = interface_value
 
 class MOL_OT_Default_Style(bpy.types.Operator):
@@ -458,6 +229,7 @@ class MOL_OT_Default_Style(bpy.types.Operator):
     def execute(self, context):
         bpy.context.scene.mol_import_default_style = self.panel_display
         return {"FINISHED"}
+
 
 def default_style(layout, label, panel_display):
     op = layout.operator(
@@ -479,92 +251,39 @@ class MOL_MT_Default_Style(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout.column_flow(columns = 1)
         default_style(layout, 'Atoms', 0)
-        default_style(layout, 'Cartoon', 1)
-        default_style(layout, 'Ribbon', 2)
-        default_style(layout, 'Ball and Stick', 3)
+        default_style(layout, 'Ribbon', 1)
+        default_style(layout, 'Ball and Stick', 2)
 
-def MOL_PT_panel_ui(layout_function, scene): 
+def MOL_PT_panel_ui(layout_function, ): 
     layout_function.label(text = "Import Options", icon = "MODIFIER")
-    box = layout_function.box()
-    grid = box.grid_flow(columns = 2)
-    
-    grid.prop(bpy.context.scene, 'mol_import_center', 
-                text = 'Centre Structure', icon_value=0, emboss=True)
-    grid.prop(bpy.context.scene, 'mol_import_del_solvent', 
-                text = 'Delete Solvent', icon_value=0, emboss=True)
-    grid.prop(bpy.context.scene, 'mol_import_include_bonds', 
-                text = 'Import Bonds', icon_value=0, emboss=True)
-    grid.menu(
-        'MOL_MT_Default_Style', 
-        text = ['Atoms', 'Cartoon', 'Ribbon', 'Ball and Stick'][
-            bpy.context.scene.mol_import_default_style
-            ])
-    panel = layout_function
-    # row = panel.row(heading = '', align=True)
-    row = panel.grid_flow(row_major = True, columns = 3, align = True)
-    row.alignment = 'EXPAND'
-    row.enabled = True
-    row.alert = False
-    
-    
-    MOL_change_import_interface(row, 'PDB',           0,  "URL")
-    MOL_change_import_interface(row, 'Local File',    1, 108)
-    MOL_change_import_interface(row, 'MD Trajectory', 2, 487)
-    MOL_change_import_interface(row, 'EM Map', 3, 'LIGHTPROBE_CUBEMAP')
-    MOL_change_import_interface(row, 'Star File',     4, 487)
-    MOL_change_import_interface(row, 'Access Num',    5,  487)
-    
-    panel_selection = bpy.context.scene.mol_import_panel_selection
-    col = panel.column()
-    box = col.box()
-    
-    if panel_selection == 0:
-        row = layout_function.row()
-        if not pkg.is_current('biotite'):
-            box.enabled = False
-            box.alert = True
-            box.label(text = "Please install biotite in the addon preferences.")
+    if not pkg.available():
+        layout_function.operator('mol.install_dependencies', text = 'Install Packages')
+    else:
+        box = layout_function.box()
+        grid = box.grid_flow(columns = 2)
         
-        MOL_PT_panel_rcsb(box)
-    elif panel_selection == 1:
-        if not pkg.is_current('biotite'):
-            box.enabled = False
-            box.alert = True
-            box.label(text = "Please install biotite in the addon preferences.")
-        esmfold.panel(box)
-    elif panel_selection == 2:
-        if not pkg.is_current('biotite'):
-            box.enabled = False
-            box.alert = True
-            box.label(text = "Please install biotite in the addon preferences.")
-        MOL_PT_panel_local(box)
-    elif panel_selection == 3:
-        if not pkg.is_current('MDAnalysis'):
-            box.enabled = False
-            box.alert = True
-            box.label(text = "Please install MDAnalysis in the addon preferences.")
-            
-        md.panel(box, scene)
-    elif panel_selection == 4:
-        if not pkg.is_current('mrcfile'):
-            box.enabled = False
-            box.alert = True
-            box.label(text = "Please intall 'mrcfile' in the addon preferences.")
-        density.panel(box, scene)
-    elif panel_selection == 5:
-        for name in ['starfile', 'eulerangles']:
-            if not pkg.is_current(name):
-                box.enabled = False
-                box.alert = True
-                box.label(text = f"Please install '{name}' in the addon preferences.")
-        MOL_PT_panel_star_file(box, scene)
-    elif panel_selection == 5:
-        if not pkg.is_current('biotite'):
-            box.enabled = False
-            box.alert = True
-            box.label(text = "Please install biotite in the addon preferences.")
-        MOL_PT_panel_dna(box, scene)
-
+        grid.prop(bpy.context.scene, 'mol_import_center', text = 'Centre Structre', icon_value=0, emboss=True)
+        grid.prop(bpy.context.scene, 'mol_import_del_solvent', text = 'Delete Solvent', icon_value=0, emboss=True)
+        grid.prop(bpy.context.scene, 'mol_import_include_bonds', text = 'Import Bonds', icon_value=0, emboss=True)
+        grid.menu(
+            'MOL_MT_Default_Style', 
+            text = ['Atoms', 'Ribbon', 'Ball and Stick'][bpy.context.scene.mol_import_default_style])
+        box = layout_function
+        row = box.row(heading = '', align=True)
+        row.alignment = 'EXPAND'
+        row.enabled = True
+        row.alert = False
+        MOL_change_import_interface(row, 'PDB',           0,  72)
+        MOL_change_import_interface(row, 'Local File',    1, 108)
+        MOL_change_import_interface(row, 'MD Trajectory', 2, 487)
+        
+        layout_function = box.box()
+        if bpy.context.scene.mol_import_panel_selection == 0:
+            MOL_PT_panel_rcsb(layout_function)
+        elif bpy.context.scene.mol_import_panel_selection == 1:
+            MOL_PT_panel_local(layout_function)
+        else:
+            MOL_PT_panel_md_traj(layout_function)
 
 class MOL_PT_panel(bpy.types.Panel):
     bl_label = 'Molecular Nodes'
@@ -585,32 +304,24 @@ class MOL_PT_panel(bpy.types.Panel):
 
     def draw(self, context):
         
-        MOL_PT_panel_ui(self.layout, bpy.context.scene)
+        MOL_PT_panel_ui(self.layout, )
+
 
 def mol_add_node(node_name):
     prev_context = bpy.context.area.type
     bpy.context.area.type = 'NODE_EDITOR'
-    # actually invoke the operator to add a node to the current node tree
-    # use_transform=True ensures it appears where the user's mouse is and is currently 
-    # being moved so the user can place it where they wish
-    bpy.ops.node.add_node(
-        'INVOKE_DEFAULT', 
-        type='GeometryNodeGroup', 
-        use_transform=True
-        )
+    bpy.ops.node.add_node('INVOKE_DEFAULT', type='GeometryNodeGroup', use_transform=True)
     bpy.context.area.type = prev_context
     bpy.context.active_node.node_tree = bpy.data.node_groups[node_name]
     bpy.context.active_node.width = 200.0
+    if (property_exists("bpy.data.node_groups[bpy.context.active_object.modifiers.active.node_group.name].nodes[bpy.context.active_node.name].inputs['Material'].default_value", globals(), locals())):
+        mat = nodes.mol_base_material()
+        bpy.data.node_groups[bpy.context.active_object.modifiers.active.node_group.name].nodes[bpy.context.active_node.name].inputs['Material'].default_value = bpy.data.materials[mat.name]
     
-    # if added node has a 'Material' input, set it to the default MN material
-    input_mat = bpy.context.active_node.inputs.get('Material')
-    if input_mat:
-        input_mat.default_value = nodes.mol_base_material()
-
 class MOL_OT_Add_Custom_Node_Group(bpy.types.Operator):
     bl_idname = "mol.add_custom_node_group"
     bl_label = "Add Custom Node Group"
-    # bl_description = "Add Molecular Nodes custom node group."
+    bl_description = "Add Molecular Nodes custom node group."
     bl_options = {"REGISTER", "UNDO"}
     node_name: bpy.props.StringProperty(
         name = 'node_name', 
@@ -619,48 +330,34 @@ class MOL_OT_Add_Custom_Node_Group(bpy.types.Operator):
         subtype = 'NONE', 
         maxlen = 0
     )
-    node_description: bpy.props.StringProperty(
-        name = "node_description", 
-        description="", 
-        default="Add MolecularNodes custom node group.", 
-        subtype="NONE"
-    )
 
     @classmethod
     def poll(cls, context):
         return True
-    
-    @classmethod
-    def description(cls, context, properties):
-        return properties.node_description
-    
+
     def execute(self, context):
         try:
             nodes.mol_append_node(self.node_name)
             mol_add_node(self.node_name)
         except RuntimeError:
-            self.report({'ERROR'}, 
-                        message='Failed to add node. Ensure you are not in edit mode.')
+            self.report({'ERROR'}, message='Failed to add node. Ensure you are not in edit mode.')
         return {"FINISHED"}
     
     def invoke(self, context, event):
         return self.execute(context)
 
-def menu_item_interface(layout_function, 
-                        label, 
-                        node_name, 
-                        node_description='Add custom MolecularNodes node group.'):
-    op=layout_function.operator('mol.add_custom_node_group', 
-                                text = label, emboss = True, depress=False)
-    op.node_name = node_name
-    op.node_description = node_description
+
+def menu_item_interface(layout_function, label, node):
+    op = layout_function.operator('mol.add_custom_node_group', 
+                                  text = label, 
+                                  emboss = True, depress=False)
+    op.node_name = node
+
 
 class MOL_OT_Style_Surface_Custom(bpy.types.Operator):
     bl_idname = "mol.style_surface_custom"
     bl_label = "My Class Name"
-    bl_description = "Create a split surface representation.\nGenerates an isosurface \
-        based on atomic vdw_radii. Each chain has its own separate surface \
-        representation"
+    bl_description = "Create a surface representation for each chain."
     bl_options = {"REGISTER", "UNDO"}
     
     @classmethod
@@ -684,10 +381,7 @@ class MOL_OT_Style_Surface_Custom(bpy.types.Operator):
 class MOL_OT_Assembly_Bio(bpy.types.Operator):
     bl_idname = "mol.assembly_bio"
     bl_label = "Build"
-    bl_description = "**PDB Downloaded Structures Only**\nAdds node to build \
-        biological assembly based on symmetry operations that are extraced from the \
-        structure file. Currently this is only supported for structures that were \
-        downloaded from the PDB"
+    bl_description = "Add Node to Build Biological Assembly"
     bl_options = {"REGISTER", "UNDO"}
     
     @classmethod
@@ -703,25 +397,13 @@ class MOL_OT_Assembly_Bio(bpy.types.Operator):
             )
         except:
             node_bio_assembly = None
-            self.report(
-                {'WARNING'}, 
-                message = 'Unable to detect biological assembly information.'
-                )
+            self.report({'WARNING'}, message = 'Unable to detect biological assembly information.')
         
         if node_bio_assembly:
             mol_add_node(node_bio_assembly.name)
         
         return {"FINISHED"}
 
-def menu_residues_selection_custom(layout_function):
-    obj = bpy.context.view_layer.objects.active
-    label = 'Res ID'
-    op = layout_function.operator(
-        'mol.residues_selection_custom', 
-        text = label, 
-        emboss = True, 
-        depress = True
-    )
 
 def menu_item_surface_custom(layout_function, label):
     op = layout_function.operator('mol.style_surface_custom', 
@@ -738,8 +420,7 @@ def menu_item_color_chains(layout_function, label):
 class MOL_OT_Color_Chain(bpy.types.Operator):
     bl_idname = "mol.color_chains"
     bl_label = "My Class Name"
-    bl_description = "Create a custom node for coloring each chain of a structure \
-        individually.\nRequires chain information to be available from the structure"
+    bl_description = "Create a custom node for coloring each chain individually."
     bl_options = {"REGISTER", "UNDO"}
     
     @classmethod
@@ -772,9 +453,7 @@ def menu_chain_selection_custom(layout_function):
 class MOL_OT_Chain_Selection_Custom(bpy.types.Operator):
     bl_idname = "mol.chain_selection_custom"
     bl_label = "Chain Selection"
-    bl_description = "Create a selection based on the chains.\nThis node is built on a \
-        per-molecule basis, taking into account the chain_ids that were detected. If \
-        no chain information is available this node will not work"
+    bl_description = "Add a custom node for selection all of the chains for this moledcule."
     bl_options = {"REGISTER", "UNDO"}
     
     @classmethod
@@ -785,84 +464,13 @@ class MOL_OT_Chain_Selection_Custom(bpy.types.Operator):
         obj = bpy.context.view_layer.objects.active
         node_chains = nodes.chain_selection(
             node_name = 'MOL_sel_' + str(obj.name) + "_chains", 
-            input_list = obj['chain_id_unique'], 
-            starting_value = 0,
-            attribute = 'chain_id', 
-            label_prefix = "Chain "
+            input_list = obj['chain_id_unique']
             )
         
         mol_add_node(node_chains.name)
         
         return {"FINISHED"}
 
-
-class MOL_OT_Residues_Selection_Custom(bpy.types.Operator):
-    bl_idname = "mol.residues_selection_custom"
-    bl_label = "Multiple Residue Selection"
-    bl_description = "Create a selection based on the provided residue strings.\nThis \
-        node is built on a per-molecule basis, taking into account the residues that \
-        were input."
-    bl_options = {"REGISTER", "UNDO"}
-
-    input_resid_string: bpy.props.StringProperty(
-        name="Select residue IDs: ",
-        description="Enter a string value.",
-        default="19,94,1-16"
-    )
-
-    @classmethod
-    def poll(cls, context):
-        return True
-    
-    def execute(self, context):
-        obj = bpy.context.view_layer.objects.active
-        node_residues = nodes.resid_multiple_selection(
-            node_name = 'MOL_sel_residues', 
-            input_resid_string = self.input_resid_string, 
-            )
-    
-        
-        mol_add_node(node_residues.name)
-        return {"FINISHED"}
-
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
-
-def menu_ligand_selection_custom(layout_function):
-    obj = bpy.context.view_layer.objects.active
-    label = 'Ligands ' + str(obj.name)
-    op = layout_function.operator(
-        'mol.ligand_selection_custom', 
-        text = label, 
-        emboss = True, 
-        depress = True
-    )
-
-class MOL_OT_Ligand_Selection_Custom(bpy.types.Operator):
-    bl_idname = "mol.ligand_selection_custom"
-    bl_label = "Ligand Selection"
-    bl_description = "Create a selection based on the ligands.\nThis node is built on \
-        a per-molecule basis, taking into account the chain_ids that were detected. If \
-        no chain information is available this node will not work"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    @classmethod
-    def poll(cls, context):
-        return True
-    
-    def execute(self, context):
-        obj = bpy.context.view_layer.objects.active
-        node_chains = nodes.chain_selection(
-            node_name = 'MOL_sel_' + str(obj.name) + "_ligands", 
-            input_list = obj['ligands'], 
-            starting_value = 100, 
-            attribute = 'res_name', 
-            label_prefix = ""
-            )
-        
-        mol_add_node(node_chains.name)
-        
-        return {"FINISHED"}
 
 class MOL_MT_Add_Node_Menu_Properties(bpy.types.Menu):
     bl_idname = 'MOL_MT_ADD_NODE_MENU_PROPERTIES'
@@ -888,25 +496,14 @@ class MOL_MT_Add_Node_Menu_Color(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        menu_item_interface(layout, 'Set Color', 'MOL_color_set', 
-                            "Sets a new color for the selected atoms")
-        menu_item_interface(layout, 'Set Color Common', 'MOL_color_set_common', 
-                            "Choose a color for the most common elements in PDB \
-                            structures")
+        menu_item_interface(layout, 'Set Color', 'MOL_color_set')
         layout.separator()
-        menu_item_interface(layout, 'Goodsell Colors', 'MOL_color_goodsell', 
-                            "Adjusts the given colors to copy the 'Goodsell Style'.\n \
-                            Darkens the non-carbon atoms and keeps the carbon atoms \
-                            the same color. Highlights differences without being too \
-                            visually busy")
+        menu_item_interface(layout, 'Goodsell Colors', 'MOL_color_goodsell')
         layout.separator()
-        menu_item_interface(layout, 'Color by SS', 'MOL_color_sec_struct', 
-                            "Specify colors based on the secondary structure")
-        menu_item_interface(layout, 'Color by Atomic Number', 'MOL_color_atomic_number',
-                            "Creates a color based on atomic_number field")
-        menu_item_interface(layout, 'Color by Element', 'MOL_color_element', 
-                            "Choose a color for each of the first 20 elements")
+        menu_item_interface(layout, 'Color by Atomic Number', 'MOL_color_atomic_number')
+        menu_item_interface(layout, 'Color by Element', 'MOL_color_element')
         menu_item_color_chains(layout, 'Color by Chains')
+        menu_item_interface(layout, 'Color Atomic', 'MOL_style_color')
 
 class MOL_MT_Add_Node_Menu_Bonds(bpy.types.Menu):
     bl_idname = 'MOL_MT_ADD_NODE_MENU_BONDS'
@@ -919,17 +516,9 @@ class MOL_MT_Add_Node_Menu_Bonds(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        menu_item_interface(layout, 'Find Bonds', 'MOL_bonds_find', 
-                            "Finds bonds between atoms based on distance.\n\
-                            Based on the vdw_radii for each point, finds other points \
-                            within a certain radius to create a bond to. Does not \
-                            preserve the index for the points. Does not detect bond type")
-        menu_item_interface(layout, 'Break Bonds', 'MOL_bonds_break', 
-                            "Will delete a bond between atoms that already exists \
-                            based on a distance cutoff")
-        menu_item_interface(layout, 'Find Bonded Atoms', 'MOL_bonds_find_bonded', 
-                            "Based on an initial selection, finds atoms which are \
-                            within a certain number of bonds away")
+        menu_item_interface(layout, 'Find Bonds', 'MOL_bonds_find')
+        menu_item_interface(layout, 'Break Bonds', 'MOL_bonds_break')
+        menu_item_interface(layout, 'Find Bonded Atoms', 'MOL_bonds_find_bonded')
 
 class MOL_MT_Add_Node_Menu_Styling(bpy.types.Menu):
     bl_idname = 'MOL_MT_ADD_NODE_MENU_SYLING'
@@ -942,33 +531,13 @@ class MOL_MT_Add_Node_Menu_Styling(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        menu_item_interface(layout, 'Atoms Cycles', 'MOL_style_atoms_cycles', 
-                            'A sphere atom representation, visible ONLY in Cycles. \
-                            Based on point-cloud rendering')
-        menu_item_interface(layout, 'Atoms EEVEE', 'MOL_style_atoms_eevee', 
-                            'A sphere atom representation, visible in EEVEE and \
-                            Cycles. Based on mesh instancing which slows down viewport \
-                            performance')
-        menu_item_interface(layout, 'Cartoon', 'MOL_style_cartoon', 
-                            'Create a cartoon representation, highlighting secondary \
-                            structure through arrows and ribbons.')
-        menu_item_interface(layout, 'Ribbon Protein', 'MOL_style_ribbon_protein', 
-                            'Create a ribbon mesh based off of the alpha-carbons of \
-                            the structure')
-        menu_item_interface(layout, 'Ribbon Nucleic', 'MOL_style_ribbon_nucleic', 
-                            'Create a ribbon mesh and instanced cylinders for nucleic \
-                            acids.')
-        menu_item_interface(layout, 'Surface', 'MOL_style_surface_single', 
-                            "Create a single joined surface representation. \
-                            Generates an isosurface based on atomic vdw_radii. All \
-                            chains are part of the same surface. Use Surface Split \
-                            Chains to have a single surface per chain")
+        menu_item_interface(layout, 'Atoms Cycles', 'MOL_style_atoms')
+        menu_item_interface(layout, 'Atoms EEVEE', 'MOL_style_atoms_eevee')
+        menu_item_interface(layout, 'Ribbon', 'MOL_style_ribbon')
+        menu_item_interface(layout, 'Surface', 'MOL_style_surface_single')
         menu_item_surface_custom(layout, 'Surface Split Chains')
-        menu_item_interface(layout, 'Ball and Stick', 'MOL_style_ball_and_stick', 
-                            "A style node to create ball and stick representation. \
-                            Icospheres are instanced on atoms and cylinders for bonds. \
-                            Bonds can be detected if they are not present in the \
-                            structure")
+        menu_item_interface(layout, 'Ball and Stick', 'MOL_style_ball_and_stick')
+
 
 class MOL_MT_Add_Node_Menu_Selections(bpy.types.Menu):
     bl_idname = 'MOL_MT_ADD_NODE_MENU_SELECTIONS'
@@ -981,55 +550,20 @@ class MOL_MT_Add_Node_Menu_Selections(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        menu_item_interface(layout, 'Select Atoms', 'MOL_sel_atoms', 
-                            "Separate atoms based on a selection field.\n" +
-                            "Takes atoms and splits them into the selected atoms the \
-                            inverted atoms, based on a selection field")
-        menu_item_interface(layout, 'Separate Polymers', 'MOL_sel_sep_polymers', 
-                            "Separate the Geometry into the different polymers.\n" + 
-                            "Outputs for protein, nucleic & sugars")
+        menu_item_interface(layout, 'Select Atoms', 'MOL_sel_atoms')
+        menu_item_interface(layout, 'Separate Polymers', 'MOL_sel_sep_polymers')
         layout.separator()
         menu_chain_selection_custom(layout)
-        menu_ligand_selection_custom(layout)
         layout.separator()
-        menu_item_interface(layout, 'Backbone', 'MOL_sel_backbone', 
-                            "Select atoms it they are part of the side chains or backbone.")
-        menu_item_interface(layout, 'Atom Properties', 'MOL_sel_atom_propeties', 
-                            "Create a selection based on the properties of the atom.\n\
-                            Fields for is_alpha_carbon, is_backbone, is_peptide, \
-                            is_nucleic, is_solvent and is_carb")
-        menu_item_interface(layout, 'Atomic Number', 'MOL_sel_atomic_number', 
-                            "Create a selection if input value equal to the \
-                            atomic_number field.")
-        menu_item_interface(layout, 'Element Name', 'MOL_sel_element_name', 
-                            "Create a selection of particular elements by name. Only \
-                            first 20 elements supported")
+        menu_item_interface(layout, 'Atom Properties', 'MOL_sel_atom_propeties')
+        menu_item_interface(layout, 'Atomic Number', 'MOL_sel_atomic_number')
+        menu_item_interface(layout, 'Element Name', 'MOL_sel_element_name')
         layout.separator()
-        menu_item_interface(layout, 'Distance', 'MOL_sel_distance', 
-                            "Create a selection based on the distance to a selected \
-                            object.\n The cutoff is scaled based on the objects scale \
-                            and the 'Scale Cutoff' value.")
-        menu_item_interface(layout, 'Slice', 'MOL_sel_slice', 
-                            "Create a selection that is a slice along one of the XYZ \
-                            axes, based on the position of an object.")
-        layout.separator()
-        menu_residues_selection_custom(layout)                        
-        menu_item_interface(layout, 'Res ID Single', 'MOL_sel_res_id', 
-                            "Create a selection if res_id matches input field")
-        menu_item_interface(layout, 'Res ID Range', 'MOL_sel_res_id_range', 
-                            "Create a selection if the res_id is within the given \
-                            thresholds")
-        menu_item_interface(layout, 'Res Name Peptide', 'MOL_sel_res_name', 
-                            "Create a selection of particular amino acids by name")
-        menu_item_interface(layout, 'Res Name Nucleic', 'MOL_sel_res_name_nucleic', 
-                            "Create a selection of particular nucleic acids by name")
-        menu_item_interface(layout, 'Res Whole', 'MOL_sel_res_whole', 
-                            "Expand the selection to every atom in a residue, if any \
-                            of those atoms are in the initial selection")
-        menu_item_interface(layout, 'Res Atoms', 'MOL_sel_res_atoms', 
-                            "Create a selection based on the atoms of a residue.\n" +
-                            "Selections for CA, backbone atoms (N, C, O), sidechain \
-                            and backbone")
+        menu_item_interface(layout, 'Res Properties', 'MOL_sel_res_properties')
+        menu_item_interface(layout, 'Res Name', 'MOL_sel_res_name')
+        menu_item_interface(layout, 'Res Name Nucleic', 'MOL_sel_res_name_nucleic')
+        menu_item_interface(layout, 'Res ID', 'MOL_sel_res_id')
+        menu_item_interface(layout, 'Res ID Range', 'MOL_sel_res_id_range')
 
 class MOL_MT_Add_Node_Menu_Assembly(bpy.types.Menu):
     bl_idname = 'MOL_MT_ADD_NODE_MENU_ASSEMBLY'
@@ -1042,14 +576,8 @@ class MOL_MT_Add_Node_Menu_Assembly(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        layout.operator("mol.assembly_bio", 
-                        text = "Biological Assembly", 
-                        emboss = True, 
-                        depress=True
-                        )
-        menu_item_interface(layout, 'Center Assembly', 'MOL_assembly_center', 
-                            "Center the structure on the world origin based on \
-                            bounding box")
+        layout.operator("mol.assembly_bio", text = "Biological Assembly", emboss = True, depress=True)
+        menu_item_interface(layout, 'Center Assembly', 'MOL_assembly_center')
 
 class MOL_MT_Add_Node_Menu_Membranes(bpy.types.Menu):
     bl_idname = 'MOL_MT_ADD_NODE_MENU_MEMBRANES'
@@ -1075,24 +603,13 @@ class MOL_MT_Add_Node_Menu_DNA(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        menu_item_interface(layout, 'Double Helix', 'MOL_dna_double_helix', 
-                            "Create a DNA double helix from an input curve.\n" + 
-                            "Takes an input curve and instances for the bases, returns \
-                            instances of the bases in a double helix formation")
-        menu_item_interface(layout, 'Bases', 'MOL_dna_bases', 
-                            "Provide the DNA bases as instances to be styled and \
-                            passed onto the Double Helix node")
+        menu_item_interface(layout, 'Double Helix', 'MOL_dna_double_helix')
+        menu_item_interface(layout, 'Bases', 'MOL_dna_bases')
         layout.separator()
-        menu_item_interface(layout, 'Style Atoms Cyeles', 'MOL_dna_style_atoms_cycles', 
-                            "Style the DNA bases with spheres only visible in Cycles")
-        menu_item_interface(layout, 'Style Atoms EEVEE', 'MOL_dna_style_atoms_eevee', 
-                            "Style the DNA bases with spheres visible in Cycles and \
-                            EEVEE")
-        menu_item_interface(layout, 'Style Surface', 'MOL_dna_style_surface', 
-                            "Style the DNA bases with surface representation")
-        menu_item_interface(layout, 'Style Ball and Stick', 
-                            'MOL_dna_style_ball_and_stick', 
-                            "Style the DNA bases with ball and stick representation")
+        menu_item_interface(layout, 'Style Atoms Cyeles', 'MOL_dna_style_atoms')
+        menu_item_interface(layout, 'Style Atoms EEVEE', 'MOL_dna_style_atoms_eevee')
+        menu_item_interface(layout, 'Style Surface', 'MOL_dna_style_surface')
+        menu_item_interface(layout, 'Style Ball and Stick', 'MOL_dna_style_ball_and_stick')
 
 class MOL_MT_Add_Node_Menu_Animation(bpy.types.Menu):
     bl_idname = 'MOL_MT_ADD_NODE_MENU_ANIMATION'
@@ -1105,35 +622,12 @@ class MOL_MT_Add_Node_Menu_Animation(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        menu_item_interface(layout, 'Animate Frames', 'MOL_animate_frames', 
-                            "Interpolate between frames of a trajectory." + 
-                            "Given a collection of frames for a trajectory, this node \
-                            interpolates between them from start to finish based on \
-                            the Animate field taking a value from 0 to 1. The \
-                            positions of the Atoms are then moved based on this field")
-        menu_item_interface(layout, 'Animate Field', 'MOL_animate_field')
-        menu_item_interface(layout, 'Animate Value', 'MOL_animate_value', 
-                            "Animates between given start and end values, based on \
-                            the input start and end frame of the timeline. Clamped \
-                            will limit the output to the 'To Min' and 'To Max', while \
-                            unclamped will continue to interpolate past these values. \
-                            'Smoother Step' will ease in and out of these values, with \
-                            default being linear interpolation")
+        menu_item_interface(layout, 'Animate Frames', 'MOL_animate_frames')
+        menu_item_interface(layout, 'Animate Value', 'MOL_animate_value')
         layout.separator()
-        menu_item_interface(layout, 'Res Wiggle', "MOL_animate_res_wiggle", 
-                            "Wiggles the side chains of amino acids based on b_factor, \
-                            adding movement to a structure.")
-        menu_item_interface(layout, 'Res to Curve', "MOL_animate_res_to_curve", 
-                            "Takes atoms and maps them along a curve, as a single \
-                            long peptide chain.")
-        layout.separator()
-        menu_item_interface(layout, 'Noise Position', 'MOL_noise_position', 
-                            "Generate 3D noise field based on the position attribute")
-        menu_item_interface(layout, 'Noise Field', 'MOL_noise_field', 
-                            "Generate a 3D noise field based on the given field")
-        menu_item_interface(layout, 'Noise Repeat', 'MOL_noise_repeat', 
-                            "Generate a 3D noise field that repeats, based on the \
-                            given field")
+        menu_item_interface(layout, 'Noise Position', 'MOL_noise_position')
+        menu_item_interface(layout, 'Noise Field', 'MOL_noise_field')
+        menu_item_interface(layout, 'Noise Repeat', 'MOL_noise_repeat')
 
 class MOL_MT_Add_Node_Menu_Utilities(bpy.types.Menu):
     bl_idname = 'MOL_MT_ADD_NODE_MENU_UTILITIES'
@@ -1149,22 +643,6 @@ class MOL_MT_Add_Node_Menu_Utilities(bpy.types.Menu):
         menu_item_interface(layout, 'Booelean Chain', 'MOL_utils_bool_chain')
         menu_item_interface(layout, 'Rotation Matrix', 'MOL_utils_rotation_matrix')
         menu_item_interface(layout, 'Curve Resample', 'MOL_utils_curve_resample')
-        menu_item_interface(layout, 'Determine Secondary Structure', 'MOL_utils_dssp')
-
-class MOL_MT_Add_Node_Menu_Density(bpy.types.Menu):
-    bl_idname = 'MOL_MT_ADD_NODE_MENU_DENSITY'
-    bl_label = ''
-    
-    @classmethod
-    def poll(cls, context):
-        return True
-    
-    def draw(self, context):
-        layout = self.layout
-        layout.operator_context = "INVOKE_DEFAULT"
-        menu_item_interface(layout, 'Style Surface', 'MOL_style_density_surface')
-        menu_item_interface(layout, 'Style Wire', 'MOL_style_density_wire')
-        menu_item_interface(layout, 'Sample Nearest Attribute', 'MOL_utils_sample_searest')
 
 class MOL_MT_Add_Node_Menu(bpy.types.Menu):
     bl_idname = "MOL_MT_ADD_NODE_MENU"
@@ -1177,24 +655,16 @@ class MOL_MT_Add_Node_Menu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout.column_flow(columns=1)
         layout.operator_context = "INVOKE_DEFAULT"
-        layout.menu('MOL_MT_ADD_NODE_MENU_SYLING', 
-                    text='Style', icon_value=77)
-        layout.menu('MOL_MT_ADD_NODE_MENU_COLOR', 
-                    text='Color', icon = 'COLORSET_07_VEC')
-        layout.menu('MOL_MT_ADD_NODE_MENU_DENSITY', icon = "LIGHTPROBE_CUBEMAP", 
-                    text = "Density")
-        layout.menu('MOL_MT_ADD_NODE_MENU_BONDS', 
-                    text='Bonds', icon = 'FIXED_SIZE')
-        layout.menu('MOL_MT_ADD_NODE_MENU_SELECTIONS', 
-                    text='Selection', icon_value=256)
-        layout.menu('MOL_MT_ADD_NODE_MENU_ANIMATION', 
-                    text='Animation', icon_value=409)
-        layout.menu('MOL_MT_ADD_NODE_MENU_ASSEMBLY', 
-                    text='Assemblies', icon = 'GROUP_VERTEX')
-        layout.menu('MOL_MT_ADD_NODE_MENU_DNA', 
-                    text='DNA', icon='GP_SELECT_BETWEEN_STROKES')
-        layout.menu('MOL_MT_ADD_NODE_MENU_UTILITIES', 
-                    text='Utilities', icon_value=92)
+        # layout.menu('MOL_MT_ADD_NODE_MENU_PROPERTIES', text='Properties', icon_value=201)
+        layout.menu('MOL_MT_ADD_NODE_MENU_SYLING', text='Style', icon_value=77)
+        layout.menu('MOL_MT_ADD_NODE_MENU_COLOR', text='Color', icon = 'COLORSET_07_VEC')
+        layout.menu('MOL_MT_ADD_NODE_MENU_BONDS', text='Bonds', icon = 'FIXED_SIZE')
+        layout.menu('MOL_MT_ADD_NODE_MENU_SELECTIONS', text='Selection', icon_value=256)
+        layout.menu('MOL_MT_ADD_NODE_MENU_ANIMATION', text='Animation', icon_value=409)
+        layout.menu('MOL_MT_ADD_NODE_MENU_ASSEMBLY', text='Assemblies', icon = 'GROUP_VERTEX')
+        # layout.menu('MOL_MT_ADD_NODE_MENU_MEMBRANES', text='Membranes', icon_value=248)
+        layout.menu('MOL_MT_ADD_NODE_MENU_DNA', text='DNA', icon='GP_SELECT_BETWEEN_STROKES')
+        layout.menu('MOL_MT_ADD_NODE_MENU_UTILITIES', text='Utilities', icon_value=92)
 
 def mol_add_node_menu(self, context):
     if ('GeometryNodeTree' == bpy.context.area.spaces[0].tree_type):
