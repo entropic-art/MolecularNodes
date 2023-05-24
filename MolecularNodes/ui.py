@@ -8,7 +8,38 @@ from . import md
 from . import assembly
 import os
 
+#operator that calls the function to import the fasta sequence from GenBank
+class MOL_OT_Import_DNA_Seq(bpy.types.Operator):
+    #PLACEHOLDER NAMES, ENSURE THEY MATCH UP
+    bl_idname = "mol.import_fasta_seq"
+    bl_label = "import_dna_fasta"
+    bl_description = "Download a fasta sequence from NIH GenBank"
+    bl_options = {"REGISTER", "UNDO"}
 
+    @classmethod
+    def poll(cls, context):
+        return not False
+
+    def execute(self, context):
+        #write in dna access num
+        fasta = bpy.context.scene.dna_access_num
+        #collection = bpy.context.scene.collection
+        seq = load.open_structure_genbank(
+            access_num = fasta,
+            #collection = collection
+            )
+
+        nodes.create_starting_dna_node_tree(
+            obj = seq
+            )
+        #check to make sure everything was found/downloaded correctly
+
+        self.report({'INFO'}, message='Successfully Imported '+ fasta + ' as ' + seq.name)
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        return self.execute(context)
 
 # operator that calls the function to import the structure from the PDB
 class MOL_OT_Import_Protein_RCSB(bpy.types.Operator):
@@ -108,7 +139,57 @@ class MOL_OT_Import_Protein_MD(bpy.types.Operator):
         self.report({'INFO'}, message=f"Imported '{file_top}' as {mol_object.name} with {str(n_frames)} frames from '{file_traj}'.")
         
         return {"FINISHED"}
+#write and store a string for custom nucleic acid sequence
+class MOL_OT_Write_Custom_DNA_Seq(bpy.types.Operator):
+    #PLACEHOLDER NAMES, ENSURE THEY MATCH UP ACROSS MOL_NODES
+    bl_idname = "mol.write_custom_seq"
+    bl_label = "write_custom_seq"
+    bl_description = "Write a string of nucleic acids for a custom sequence"
+    bl_options = {"REGISTER", "UNDO"}
 
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        print("0")
+        #insert actual execute commands
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+#operator that calls the function to import the fasta sequence from GenBank
+class MOL_OT_Import_DNA_Seq(bpy.types.Operator):
+    #PLACEHOLDER NAMES, ENSURE THEY MATCH UP
+    bl_idname = "mol.import_fasta_seq"
+    bl_label = "import_dna_fasta"
+    bl_description = "Download a fasta sequence from NIH GenBank"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        fasta = bpy.context.scene.dna_access_num
+        seq, file = load.open_sequence_genbank(fasta = fasta)
+        nucleotides, file = load.open_structure_genbank
+        #NEED TO WRITE CREATE STRAND...HOW WAS THIS WRITTEN BEFORE THE REWRITE?
+        nuc_object = load.create_strand(
+            #open_structure_genbank
+        )
+        nodes.create_starting_dna_node_tree(
+            obj = nuc_object, 
+            starting_style = bpy.context.scene.mol_import_default_style
+            )
+        #check to make sure everything was found/downloaded correctly
+
+        self.report({'INFO'}, message='Successfully Imported '+ fasta + ' as ' + nuc_object.name)
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        return self.execute(context)
 
 def MOL_PT_panel_rcsb(layout_function, ):
     col_main = layout_function.column(heading = '', align = False)
@@ -186,6 +267,17 @@ def MOL_PT_panel_md_traj(layout_function, ):
         emboss = True
     )
     
+def MOL_PT_panel_dna(layout_function, scene):
+    #set up for adding DNA fasta acquisition into UI
+    col_main = layout_function.column(heading = '', align = False)
+    col_main.label(text = "Download from GenBank")
+    row_import = col_main.row()    
+    col_main.alert = False
+    col_main.enabled = True
+    col_main.active = True
+    
+    row_import.prop(bpy.context.scene, 'dna_access_num', text='Access Num', emboss = True)
+    row_import.operator('mol.import_fasta_seq', text = 'Download', icon = 'IMPORT')    
 
 class MOL_OT_Import_Method_Selection(bpy.types.Operator):
     bl_idname = "mol.import_method_selection"
