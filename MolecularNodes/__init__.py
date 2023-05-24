@@ -17,7 +17,7 @@ bl_info = {
     "author"      : "Brady Johnston", 
     "description" : "Toolbox for molecular animations in Blender & Geometry Nodes.",
     "blender"     : (3, 5, 0),
-    "version"     : (2, 6, 2),
+    "version"     : (2, 7, 0),
     "location"    : "Scene Properties -> MolecularNodes",
     "warning"     : "",
     "doc_url"     : "https://bradyajohnston.github.io/MolecularNodes/", 
@@ -25,13 +25,11 @@ bl_info = {
     "category"    : "Import"
 }
 
+from . import auto_load
+from .ui import mol_add_node_menu
 import bpy
-from . import pkg
-from .ui import *
-from .md import *
-from .pkg import *
-from .pref import *
 
+auto_load.init()
 
 def register():
     bpy.types.Scene.pypi_mirror_provider = bpy.props.StringProperty(
@@ -257,31 +255,6 @@ def register():
     bpy.utils.register_class(MolecularNodesPreferences)
     
 def unregister():
-    del bpy.types.Scene.pypi_mirror_provider
-    del bpy.types.Scene.mol_pdb_code
-    del bpy.types.Scene.mol_md_selection
-    del bpy.types.Scene.mol_import_center
-    del bpy.types.Scene.mol_import_del_solvent
-    del bpy.types.Scene.mol_import_include_bonds
-    del bpy.types.Scene.mol_import_map_nodes
-    del bpy.types.Scene.mol_import_map_invert
-    del bpy.types.Scene.mol_import_panel_selection
-    del bpy.types.Scene.mol_import_local_path
-    del bpy.types.Scene.mol_import_md_topology
-    del bpy.types.Scene.mol_import_md_trajectory
-    del bpy.types.Scene.mol_import_map
-    del bpy.types.Scene.mol_import_star_file_path
-    del bpy.types.Scene.mol_import_star_file_name
-    del bpy.types.Scene.mol_import_local_name
-    del bpy.types.Scene.mol_import_md_name
-    del bpy.types.Scene.mol_import_md_frame_start
-    del bpy.types.Scene.mol_import_md_frame_step
-    del bpy.types.Scene.mol_import_md_frame_end
-    del bpy.types.Scene.mol_import_default_style
-    
-    del bpy.types.Scene.trajectory_selection_list
-    del bpy.types.Scene.list_index
-    
     bpy.types.NODE_MT_add.remove(mol_add_node_menu)
     
     bpy.utils.unregister_class(TrajectorySelectionList)

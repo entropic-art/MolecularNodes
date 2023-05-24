@@ -5,6 +5,9 @@ from . import load
 from . import md
 from . import assembly
 from . import density
+from . import star
+from . import esmfold
+from . import density
 import os
 
 #operator that calls the function to import the fasta sequence from GenBank
@@ -70,6 +73,7 @@ class MOL_OT_Import_Protein_RCSB(bpy.types.Operator):
 
     def invoke(self, context, event):
         return self.execute(context)
+    
 
 # operator that calls the function to import the structure from a local file
 class MOL_OT_Import_Protein_Local(bpy.types.Operator):
@@ -103,15 +107,7 @@ class MOL_OT_Import_Protein_Local(bpy.types.Operator):
     def invoke(self, context, event):
         return self.execute(context)
 
-class MOL_OT_Import_Protein_MD(bpy.types.Operator):
-    bl_idname = "mol.import_protein_md"
-    bl_label = "Import Protein MD"
-    bl_description = "Load molecular dynamics trajectory"
-    bl_options = {"REGISTER", "UNDO"}
 
-    @classmethod
-    def poll(cls, context):
-        return True
 
     def execute(self, context):
         file_top = bpy.context.scene.mol_import_md_topology
@@ -222,6 +218,8 @@ def MOL_PT_panel_rcsb(layout_function, ):
     row_import.prop(bpy.context.scene, 'mol_pdb_code', text='PDB ID')
     row_import.operator('mol.import_protein_rcsb', text='Download', icon='IMPORT')
 
+
+
 def MOL_PT_panel_local(layout_function, ):
     col_main = layout_function.column(heading = '', align = False)
     col_main.alert = False
@@ -241,15 +239,7 @@ def MOL_PT_panel_local(layout_function, ):
         emboss = True
     )
 
-class MOL_OT_Import_Map(bpy.types.Operator):
-    bl_idname = "mol.import_map"
-    bl_label = "ImportMap"
-    bl_description = "Import a CryoEM map into Blender"
-    bl_options = {"REGISTER"}
 
-    @classmethod
-    def poll(cls, context):
-        return True
 
     def execute(self, context):
         map_file = bpy.context.scene.mol_import_map
@@ -541,21 +531,27 @@ def MOL_PT_panel_ui(layout_function, scene):
             box.enabled = False
             box.alert = True
             box.label(text = "Please install biotite in the addon preferences.")
-        MOL_PT_panel_local(box)
+        esmfold.panel(box)
     elif panel_selection == 2:
+        if not pkg.is_current('biotite'):
+            box.enabled = False
+            box.alert = True
+            box.label(text = "Please install biotite in the addon preferences.")
+        MOL_PT_panel_local(box)
+    elif panel_selection == 3:
         if not pkg.is_current('MDAnalysis'):
             box.enabled = False
             box.alert = True
             box.label(text = "Please install MDAnalysis in the addon preferences.")
             
-        MOL_PT_panel_md_traj(box, scene)
-    elif panel_selection == 3:
+        md.panel(box, scene)
+    elif panel_selection == 4:
         if not pkg.is_current('mrcfile'):
             box.enabled = False
             box.alert = True
             box.label(text = "Please intall 'mrcfile' in the addon preferences.")
-        MOL_PT_panel_map(box, scene)
-    elif panel_selection == 4:
+        density.panel(box, scene)
+    elif panel_selection == 5:
         for name in ['starfile', 'eulerangles']:
             if not pkg.is_current(name):
                 box.enabled = False
@@ -1155,8 +1151,8 @@ class MOL_MT_Add_Node_Menu_Utilities(bpy.types.Menu):
         menu_item_interface(layout, 'Curve Resample', 'MOL_utils_curve_resample')
         menu_item_interface(layout, 'Determine Secondary Structure', 'MOL_utils_dssp')
 
-class MOL_MT_Add_Density_Menu(bpy.types.Menu):
-    bl_idname = 'MOL_MT_ADD_DENSITY_MENU'
+class MOL_MT_Add_Node_Menu_Density(bpy.types.Menu):
+    bl_idname = 'MOL_MT_ADD_NODE_MENU_DENSITY'
     bl_label = ''
     
     @classmethod
@@ -1185,7 +1181,7 @@ class MOL_MT_Add_Node_Menu(bpy.types.Menu):
                     text='Style', icon_value=77)
         layout.menu('MOL_MT_ADD_NODE_MENU_COLOR', 
                     text='Color', icon = 'COLORSET_07_VEC')
-        layout.menu('MOL_MT_ADD_DENSITY_MENU', icon = "LIGHTPROBE_CUBEMAP", 
+        layout.menu('MOL_MT_ADD_NODE_MENU_DENSITY', icon = "LIGHTPROBE_CUBEMAP", 
                     text = "Density")
         layout.menu('MOL_MT_ADD_NODE_MENU_BONDS', 
                     text='Bonds', icon = 'FIXED_SIZE')

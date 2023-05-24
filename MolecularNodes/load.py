@@ -1,3 +1,5 @@
+import requests
+import io
 import bpy
 import numpy as np
 from . import coll
@@ -5,6 +7,68 @@ import warnings
 from . import data
 from . import assembly
 from . import nodes
+from . import pkg
+from . import obj
+
+
+bpy.types.Scene.mol_pdb_code = bpy.props.StringProperty(
+    name = 'pdb_code', 
+    description = 'The 4-character PDB code to download', 
+    options = {'TEXTEDIT_UPDATE'}, 
+    default = '1bna', 
+    subtype = 'NONE', 
+    maxlen = 4
+    )
+bpy.types.Scene.mol_import_center = bpy.props.BoolProperty(
+    name = "mol_import_centre", 
+    description = "Move the imported Molecule on the World Origin",
+    default = False
+    )
+bpy.types.Scene.mol_import_del_solvent = bpy.props.BoolProperty(
+    name = "mol_import_del_solvent", 
+    description = "Delete the solvent from the structure on import",
+    default = True
+    )
+
+bpy.types.Scene.mol_import_include_bonds = bpy.props.BoolProperty(
+    name = "mol_import_include_bonds", 
+    description = "Include bonds in the imported structure.",
+    default = True
+    )
+bpy.types.Scene.mol_import_panel_selection = bpy.props.IntProperty(
+    name = "mol_import_panel_selection", 
+    description = "Import Panel Selection", 
+    subtype = 'NONE',
+    default = 0
+)
+bpy.types.Scene.mol_import_local_path = bpy.props.StringProperty(
+    name = 'path_pdb', 
+    description = 'File path of the structure to open', 
+    options = {'TEXTEDIT_UPDATE'}, 
+    default = '', 
+    subtype = 'FILE_PATH', 
+    maxlen = 0
+    )
+
+
+
+bpy.types.Scene.mol_import_local_name = bpy.props.StringProperty(
+    name = 'mol_name', 
+    description = 'Name of the molecule on import', 
+    options = {'TEXTEDIT_UPDATE'}, 
+    default = 'NewMolecule', 
+    subtype = 'NONE', 
+    maxlen = 0
+    )
+
+bpy.types.Scene.mol_import_default_style = bpy.props.IntProperty(
+    name = "mol_import_default_style", 
+    description = "Default style for importing molecules.", 
+    subtype = 'NONE',
+    default = 0
+)
+
+
 
 def molecule_rcsb(
     pdb_code,               
@@ -39,6 +103,7 @@ def molecule_rcsb(
     mol_object['bio_transform_dict'] = file['bioAssemblyList']
     
     return mol_object
+
 
 def molecule_local(
     file_path,                    
@@ -160,7 +225,7 @@ def open_structure_rcsb(pdb_code, include_bonds = True):
     mol = mmtf.get_structure(file, extra_fields = ["b_factor", "charge"], include_bonds = include_bonds) 
     return mol, file
 
-
+    
 def open_structure_local_pdb(file_path, include_bonds = True):
     import biotite.structure.io.pdb as pdb
     
@@ -174,35 +239,26 @@ def open_structure_local_pdb(file_path, include_bonds = True):
 def open_structure_local_pdbx(file_path, include_bonds = True):
     import biotite.structure as struc
     import biotite.structure.io.pdbx as pdbx
+    from biotite import InvalidFileError
     
     file = pdbx.PDBxFile.read(file_path)
     
     # returns a numpy array stack, where each array in the stack is a model in the 
     # the file. The stack will be of length = 1 if there is only one model in the file
-    mol  = pdbx.get_structure(file, extra_fields = ['b_factor', 'charge'])
+    
+    # Try to get the structure, if no structure exists try to get a small molecule
+    try:
+        mol  = pdbx.get_structure(file, extra_fields = ['b_factor', 'charge'])
+    except InvalidFileError:
+        mol = pdbx.get_component(file)
+
+    
+    
     # pdbx doesn't include bond information apparently, so manually create
     # them here if requested
-    if include_bonds:
+    if include_bonds and not mol.bonds:
         mol[0].bonds = struc.bonds.connect_via_residue_names(mol[0], inter_residue = True)
     return mol, file
-
-def create_object(name, collection, locations, bonds=[]):
-    """
-    Creates a mesh with the given name in the given collection, from the supplied
-    values for the locations of vertices, and if supplied, bonds as edges.
-    """
-    # create a new mesh
-    mol_mesh = bpy.data.meshes.new(name)
-    mol_mesh.from_pydata(locations, bonds, faces=[])
-    mol_object = bpy.data.objects.new(name, mol_mesh)
-    collection.objects.link(mol_object)
-    return mol_object
-
-def add_attribute(object, name, data, type = "FLOAT", domain = "POINT", add = True):
-    if not add:
-        return None
-    attribute = object.data.attributes.new(name, type, domain)
-    attribute.data.foreach_set('value', data)
 
 def pdb_get_b_factors(file):
     """
@@ -313,12 +369,11 @@ def create_molecule(mol_array,
                     ):
     import biotite.structure as struc
     
-    if np.shape(mol_array)[0] > 1:
-        mol_frames = mol_array
-    else:
-        mol_frames = None
-    
-    mol_array = mol_array[0]
+    mol_frames = None
+    if isinstance(mol_array, struc.AtomArrayStack):
+        if mol_array.stack_depth() > 1:
+            mol_frames = mol_array
+        mol_array = mol_array[0]
     
     # remove the solvent from the structure if requested
     if del_solvent:
@@ -339,11 +394,19 @@ def create_molecule(mol_array,
     if not collection:
         collection = coll.mn()
     
+    bonds = []
+    bond_idx = []
     if include_bonds and mol_array.bonds:
         bonds = mol_array.bonds.as_array()
-        mol_object = create_object(name = mol_name, collection = collection, locations = locations, bonds = bonds[:, [0,1]])
-    else:
-        mol_object = create_object(name = mol_name, collection = collection, locations = locations)
+        bond_idx = bonds[:, [0, 1]]
+        bond_types = bonds[:, 2].copy(order = 'C') # the .copy(order = 'C') is to fix a weird ordering issue with the resulting array
+
+    mol_object = obj.create_object(
+        name = mol_name, 
+        collection = collection, 
+        locations = locations, 
+        bonds = bond_idx
+        )
 
     # The attributes for the model are initially defined as single-use functions. This allows
     # for a loop that attempts to add each attibute by calling the function. Only during this
@@ -414,6 +477,21 @@ def create_molecule(mol_array,
         )))
         
         return atom_name
+
+    def att_lipophobicity():
+        lipo = np.array(list(map(
+            lambda x, y: data.lipophobicity.get(x, {"0": 0}).get(y, 0),
+            mol_array.res_name, mol_array.atom_name
+        )))
+        
+        return lipo
+    
+    def att_charge():
+        charge = np.array(list(map(
+            lambda x, y: data.atom_charge.get(x, {"0": 0}).get(y, 0),
+            mol_array.res_name, mol_array.atom_name
+        )))
+        return charge
     
     def att_is_alpha():
         return np.isin(mol_array.atom_name, 'CA')
@@ -470,10 +548,10 @@ def create_molecule(mol_array,
     # https://www.biotite-python.org/apidoc/biotite.structure.BondType.html#biotite.structure.BondType
     if include_bonds:
         try:
-            add_attribute(
+            obj.add_attribute(
                 object = mol_object, 
                 name = 'bond_type', 
-                data = bonds[:, 2].copy(order = 'C'), # the .copy(order = 'C') is to fix a weird ordering issue with the resulting array
+                data = bond_types, 
                 type = "INT", 
                 domain = "EDGE"
                 )
@@ -492,6 +570,9 @@ def create_molecule(mol_array,
         {'name': 'vdw_radii',       'value': att_vdw_radii,           'type': 'FLOAT',   'domain': 'POINT'},
         {'name': 'chain_id',        'value': att_chain_id,            'type': 'INT',     'domain': 'POINT'},
         {'name': 'atom_name',       'value': att_atom_name,           'type': 'INT',     'domain': 'POINT'},
+        {'name': 'lipophobicity',   'value': att_lipophobicity,       'type': 'FLOAT',   'domain': 'POINT'},
+        {'name': 'charge',          'value': att_charge,              'type': 'FLOAT',   'domain': 'POINT'},
+        
         {'name': 'is_backbone',     'value': att_is_backbone,         'type': 'BOOLEAN', 'domain': 'POINT'},
         {'name': 'is_alpha_carbon', 'value': att_is_alpha,            'type': 'BOOLEAN', 'domain': 'POINT'},
         {'name': 'is_solvent',      'value': att_is_solvent,          'type': 'BOOLEAN', 'domain': 'POINT'},
@@ -504,10 +585,10 @@ def create_molecule(mol_array,
     
     # assign the attributes to the object
     for att in attributes:
-        # try:
-        add_attribute(mol_object, att['name'], att['value'](), att['type'], att['domain'])
-        # except:
-            # warnings.warn(f"Unable to add attribute: {att['name']}")
+        try:
+            obj.add_attribute(mol_object, att['name'], att['value'](), att['type'], att['domain'])
+        except:
+            warnings.warn(f"Unable to add attribute: {att['name']}")
 
     if mol_frames:
         try:
@@ -518,14 +599,14 @@ def create_molecule(mol_array,
         coll_frames = coll.frames(mol_object.name)
         
         for i, frame in enumerate(mol_frames):
-            obj_frame = create_object(
+            obj_frame = obj.create_object(
                 name = mol_object.name + '_frame_' + str(i), 
                 collection=coll_frames, 
                 locations= frame.coord * world_scale - centroid
             )
             if b_factors:
                 try:
-                    add_attribute(obj_frame, 'b_factor', b_factors[i])
+                    obj.add_attribute(obj_frame, 'b_factor', b_factors[i])
                 except:
                     b_factors = False
         
